@@ -910,6 +910,7 @@ export default function Cartera() {
   const [paqueteImportar, setPaqueteImportar] = useState(null);
   const [importError, setImportError] = useState("");
   const [tecladoAbierto, setTecladoAbierto] = useState(false);
+  const [debugTeclado, setDebugTeclado] = useState(null); // ⚠️ temporal, solo para diagnosticar
 
   // Oculta el menú inferior mientras el teclado está abierto y lo vuelve a
   // mostrar al cerrarlo, en vez de dejarlo fijo y generar un hueco vacío
@@ -926,6 +927,7 @@ export default function Cartera() {
     const detectarTeclado = () => {
       const diferencia = window.innerHeight - vv.height;
       setTecladoAbierto(diferencia > UMBRAL_PX);
+      setDebugTeclado({ innerHeight: window.innerHeight, vvHeight: Math.round(vv.height), diferencia: Math.round(diferencia) }); // ⚠️ temporal
     };
     detectarTeclado();
     vv.addEventListener("resize", detectarTeclado);
@@ -1281,6 +1283,11 @@ export default function Cartera() {
 
   return (
     <Shell>
+      {debugTeclado && (
+        <div style={{ position: "fixed", top: 4, left: 4, right: 4, zIndex: 9999, background: "rgba(0,0,0,0.85)", color: "#0f0", fontFamily: "monospace", fontSize: 11, padding: "4px 8px", borderRadius: 6, pointerEvents: "none" }}>
+          DEBUG teclado — innerHeight: {debugTeclado.innerHeight} · vv.height: {debugTeclado.vvHeight} · diferencia: {debugTeclado.diferencia} · abierto: {String(tecladoAbierto)}
+        </div>
+      )}
       <TopBar total={totalActivo} count={prestamosActivos} />
       <div style={{ flex: 1, overflowY: "auto", paddingBottom: tecladoAbierto ? 0 : 84, transition: "padding-bottom 200ms ease" }}>
         {vista === "inicio" && (
