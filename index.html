@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es-MX">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+    <meta name="theme-color" content="#10161D" />
+    <meta name="description" content="Cartera de préstamos — Agencia Gold" />
+
+    <!-- iOS: permite instalar como app de pantalla completa -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Cartera Gold" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <title>Cartera Gold</title>
+    <style>
+      html, body, #root {
+        height: 100%;
+        overscroll-behavior-y: none;
+      }
+      body {
+        margin: 0;
+        background: #10161D;
+        overflow: hidden;
+      }
+      .cartera-shell {
+        /* Cadena de fallback: vh clásico -> dvh (excluye barras del navegador
+           en los navegadores que lo soportan) -> --app-height, calculado en JS
+           a partir de window.visualViewport, que es lo único que refleja de
+           forma consistente el espacio real disponible en TODOS los
+           navegadores (Safari, Chrome, WebViews de apps como WhatsApp/
+           Instagram, etc.), incluso cuando su barra de direcciones u otros
+           botones cambian de tamaño o aparecen/desaparecen. */
+        height: 100vh;
+        height: 100dvh;
+        height: var(--app-height, 100dvh);
+      }
+    </style>
+    <script>
+      // Calcula el alto real visible (sin la barra de direcciones ni botones
+      // propios del navegador/app que esté mostrando la página) y lo expone
+      // como variable CSS. Se recalcula cada vez que ese espacio cambia, para
+      // que la barra inferior de la app siempre quede pegada al límite real
+      // de lo visible, sin dejar hueco ni quedar tapada.
+      (function () {
+        function setAppHeight() {
+          var vv = window.visualViewport;
+          var h = vv ? vv.height : window.innerHeight;
+          document.documentElement.style.setProperty("--app-height", h + "px");
+        }
+        setAppHeight();
+        window.addEventListener("resize", setAppHeight);
+        window.addEventListener("orientationchange", setAppHeight);
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener("resize", setAppHeight);
+          window.visualViewport.addEventListener("scroll", setAppHeight);
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
