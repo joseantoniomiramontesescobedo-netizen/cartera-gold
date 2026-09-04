@@ -910,7 +910,7 @@ export default function Cartera() {
   const [paqueteImportar, setPaqueteImportar] = useState(null);
   const [importError, setImportError] = useState("");
   const [tecladoAbierto, setTecladoAbierto] = useState(false);
-  const [debugTeclado, setDebugTeclado] = useState(null); // ⚠️ temporal, solo para diagnosticar
+  const contenidoRef = useRef(null);
 
   // Oculta el menú inferior mientras el teclado está abierto y lo vuelve a
   // mostrar al cerrarlo, en vez de dejarlo fijo y generar un hueco vacío
@@ -918,11 +918,11 @@ export default function Cartera() {
   //
   // OJO: en este navegador comprobamos que window.innerHeight YA viene
   // recortado igual que visualViewport.height cuando el teclado está
-  // abierto (ambos dieron 362), así que compararlos entre sí nunca detecta
-  // nada. En su lugar, guardamos la altura más grande que hemos visto
-  // (que corresponde a cuando el teclado está cerrado) y comparamos la
-  // altura actual contra ESA referencia — así si el teclado se come parte
-  // de la pantalla, sí lo notamos.
+  // abierto, así que compararlos entre sí nunca detecta nada. En su lugar,
+  // guardamos la altura más grande que hemos visto (que corresponde a
+  // cuando el teclado está cerrado) y comparamos la altura actual contra
+  // ESA referencia — así si el teclado se come parte de la pantalla, sí lo
+  // notamos.
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return; // navegador muy antiguo sin soporte: dejamos el menú fijo, como antes.
@@ -932,7 +932,6 @@ export default function Cartera() {
       if (vv.height > alturaMax) alturaMax = vv.height;
       const diferencia = alturaMax - vv.height;
       setTecladoAbierto(diferencia > UMBRAL_PX);
-      setDebugTeclado({ innerHeight: window.innerHeight, vvHeight: Math.round(vv.height), alturaMax: Math.round(alturaMax), diferencia: Math.round(diferencia) }); // ⚠️ temporal
     };
     detectarTeclado();
     vv.addEventListener("resize", detectarTeclado);
@@ -942,6 +941,14 @@ export default function Cartera() {
       vv.removeEventListener("scroll", detectarTeclado);
     };
   }, []);
+
+  // Cada vez que se entra a una pantalla distinta (incluyendo ver un cliente
+  // o préstamo diferente dentro de la misma sección), la vista se posiciona
+  // arriba del todo, sin enfocar ningún campo — el usuario decide cuándo
+  // tocar un cuadro de texto para que aparezca el teclado.
+  useEffect(() => {
+    if (contenidoRef.current) contenidoRef.current.scrollTop = 0;
+  }, [vista, detalleId, clienteVistaId]);
 
   // Guarda con reintentos silenciosos: el storage a veces falla de forma transitoria (red,
   // límite de peticiones) aunque el dato termine guardándose bien, así que no se muestra
@@ -1288,13 +1295,8 @@ export default function Cartera() {
 
   return (
     <Shell>
-      {debugTeclado && (
-        <div style={{ position: "fixed", top: 4, left: 4, right: 4, zIndex: 9999, background: "rgba(0,0,0,0.85)", color: "#0f0", fontFamily: "monospace", fontSize: 11, padding: "4px 8px", borderRadius: 6, pointerEvents: "none" }}>
-          DEBUG teclado — innerHeight: {debugTeclado.innerHeight} · vv.height: {debugTeclado.vvHeight} · alturaMax: {debugTeclado.alturaMax} · diferencia: {debugTeclado.diferencia} · abierto: {String(tecladoAbierto)}
-        </div>
-      )}
       <TopBar total={totalActivo} count={prestamosActivos} />
-      <div style={{ flex: 1, overflowY: "auto", paddingBottom: tecladoAbierto ? 0 : 84, transition: "padding-bottom 200ms ease" }}>
+      <div ref={contenidoRef} style={{ flex: 1, overflowY: "auto", paddingBottom: tecladoAbierto ? 0 : 84, transition: "padding-bottom 200ms ease" }}>
         {vista === "inicio" && (
           <Inicio
             pendientes={pendientes}
@@ -2176,7 +2178,7 @@ function NuevoPrestamo({ clientes, auxiliares, presetClienteId, onGuardar, onCan
 
       {modoCliente === "nuevo" && (
         <>
-          <Field label="Nombre completo"><input value={nombre} onChange={(e) => setNombre(e.target.value)} style={inputStyle} placeholder="Ej. Juana Pérez López" autoFocus /></Field>
+          <Field label="Nombre completo"><input value={nombre} onChange={(e) => setNombre(e.target.value)} style={inputStyle} placeholder="Ej. Juana Pérez López" /></Field>
           <Field label="Lugar donde labora"><input value={trabajo} onChange={(e) => setTrabajo(e.target.value)} style={inputStyle} placeholder="Ej. Farmacia San Rafael" /></Field>
           <Field label="Dónde vive (domicilio)"><input value={domicilio} onChange={(e) => setDomicilio(e.target.value)} style={inputStyle} placeholder="Calle, número, colonia" /></Field>
           <CampoTelefono
@@ -2344,7 +2346,7 @@ function NuevoPrestamo({ clientes, auxiliares, presetClienteId, onGuardar, onCan
                   No se pudo calcular el pago automático (interés en 0 o sin datos). Escribe el monto que pagará el cliente:
                 </div>
               )}
-              <input value={cuotaCustom} onChange={(e) => setCuotaCustom(e.target.value)} type="number" style={{ ...inputStyle, background: "var(--surface)" }} placeholder="Monto que el cliente pagará" autoFocus={cuotaSugerida <= 0} />
+              <input value={cuotaCustom} onChange={(e) => setCuotaCustom(e.target.value)} type="number" style={{ ...inputStyle, background: "var(--surface)" }} placeholder="Monto que el cliente pagará" />
             </>
           )}
           {cuotaSugerida > 0 && (
@@ -2578,7 +2580,7 @@ function PagoModal({ pago, onCancelar, onConfirmar }) {
         {paso === "montoParcial" && (
           <>
             <div style={{ fontFamily: "var(--font-display)", fontSize: 18, marginBottom: 12 }}>Otra cantidad</div>
-            <Field label="Cantidad que pagó el cliente"><input value={montoParcial} onChange={(e) => setMontoParcial(e.target.value)} type="number" style={inputStyle} placeholder="Ej. 200" autoFocus /></Field>
+            <Field label="Cantidad que pagó el cliente"><input value={montoParcial} onChange={(e) => setMontoParcial(e.target.value)} type="number" style={inputStyle} placeholder="Ej. 200" /></Field>
             <div style={{ fontSize: 12, color: "var(--muted)", marginTop: -8, marginBottom: 8 }}>Puede ser menor o mayor a lo correspondiente a esta fecha; el sistema ajusta el adeudo automáticamente.</div>
             <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
               <button type="button" onClick={volverATipo} style={btnGhostFull}>Atrás</button>
@@ -2659,7 +2661,7 @@ function PagoModal({ pago, onCancelar, onConfirmar }) {
             {mostrarCalendario && (
               <>
                 <Field label={`Elige la fecha (entre ${fmtDate(fechaMinima)} y hoy)`}>
-                  <input type="date" value={fechaCustom} min={fechaMinima} max={hoyISO} onChange={(e) => setFechaCustom(e.target.value)} style={inputStyle} autoFocus />
+                  <input type="date" value={fechaCustom} min={fechaMinima} max={hoyISO} onChange={(e) => setFechaCustom(e.target.value)} style={inputStyle} />
                 </Field>
                 <button type="button" onClick={() => elegirFecha(fechaCustom)} disabled={!fechaCustom} style={{ ...btnPrimary, width: "100%", justifyContent: "center", marginBottom: 4 }}>Usar {fechaCustom ? fmtDate(fechaCustom) : "esta fecha"}</button>
               </>
@@ -2817,7 +2819,7 @@ function ReestructurarModal({ prestamo, onCancelar, onConfirmar }) {
 
         {darPrimerPago && (
           <Field label="Monto del primer pago">
-            <input value={primerPago} onChange={(e) => setPrimerPago(e.target.value)} type="number" style={inputStyle} placeholder="Ej. 3000" autoFocus />
+            <input value={primerPago} onChange={(e) => setPrimerPago(e.target.value)} type="number" style={inputStyle} placeholder="Ej. 3000" />
           </Field>
         )}
 
