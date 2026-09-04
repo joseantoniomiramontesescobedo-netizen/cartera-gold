@@ -911,35 +911,28 @@ export default function Cartera() {
   const [importError, setImportError] = useState("");
   const [tecladoAbierto, setTecladoAbierto] = useState(false);
 
-  // Oculta el menú inferior mientras el teclado está abierto (al enfocar un
-  // campo de texto) y lo vuelve a mostrar al cerrarlo, en vez de dejarlo fijo
-  // y generar un hueco vacío entre el teclado y el menú.
+  // Oculta el menú inferior mientras el teclado está abierto y lo vuelve a
+  // mostrar al cerrarlo, en vez de dejarlo fijo y generar un hueco vacío
+  // entre el teclado y el menú. En vez de detectar esto por eventos de
+  // "foco" (que fallan con campos que se autoenfocan, como el de "Monto que
+  // el cliente pagará"), medimos directamente cuánto espacio real le queda
+  // a la pantalla: si visualViewport (lo que realmente se ve) es mucho más
+  // chico que el alto total de la ventana, es porque el teclado se comió
+  // esa diferencia.
   useEffect(() => {
-    const esCampoDeTexto = (el) => {
-      if (!el) return false;
-      const tag = el.tagName;
-      if (tag === "TEXTAREA") return true;
-      if (tag === "INPUT") {
-        return !tiposSinTeclado.includes(el.type);
-      }
-      return false;
+    const vv = window.visualViewport;
+    if (!vv) return; // navegador muy antiguo sin soporte: dejamos el menú fijo, como antes.
+    const UMBRAL_PX = 150; // margen de sobra para no confundir con la barra de direcciones
+    const detectarTeclado = () => {
+      const diferencia = window.innerHeight - vv.height;
+      setTecladoAbierto(diferencia > UMBRAL_PX);
     };
-    let cierrePendiente = null;
-    const cancelarCierre = () => { if (cierrePendiente) { clearTimeout(cierrePendiente); cierrePendiente = null; } };
-    const onFocusIn = (e) => { if (esCampoDeTexto(e.target)) { cancelarCierre(); setTecladoAbierto(true); } };
-    const onFocusOut = (e) => {
-      if (esCampoDeTexto(e.target)) {
-        cancelarCierre();
-        // Pequeño retraso para no parpadear si el foco salta a otro campo.
-        cierrePendiente = setTimeout(() => setTecladoAbierto(false), 80);
-      }
-    };
-    document.addEventListener("focusin", onFocusIn);
-    document.addEventListener("focusout", onFocusOut);
+    detectarTeclado();
+    vv.addEventListener("resize", detectarTeclado);
+    vv.addEventListener("scroll", detectarTeclado);
     return () => {
-      cancelarCierre();
-      document.removeEventListener("focusin", onFocusIn);
-      document.removeEventListener("focusout", onFocusOut);
+      vv.removeEventListener("resize", detectarTeclado);
+      vv.removeEventListener("scroll", detectarTeclado);
     };
   }, []);
 
