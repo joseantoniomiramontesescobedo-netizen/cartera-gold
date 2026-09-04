@@ -909,6 +909,39 @@ export default function Cartera() {
   const [pagoModal, setPagoModal] = useState(null);
   const [paqueteImportar, setPaqueteImportar] = useState(null);
   const [importError, setImportError] = useState("");
+  const [tecladoAbierto, setTecladoAbierto] = useState(false);
+
+  // Oculta el menú inferior mientras el teclado está abierto (al enfocar un
+  // campo de texto) y lo vuelve a mostrar al cerrarlo, en vez de dejarlo fijo
+  // y generar un hueco vacío entre el teclado y el menú.
+  useEffect(() => {
+    const esCampoDeTexto = (el) => {
+      if (!el) return false;
+      const tag = el.tagName;
+      if (tag === "TEXTAREA") return true;
+      if (tag === "INPUT") {
+        return !tiposSinTeclado.includes(el.type);
+      }
+      return false;
+    };
+    let cierrePendiente = null;
+    const cancelarCierre = () => { if (cierrePendiente) { clearTimeout(cierrePendiente); cierrePendiente = null; } };
+    const onFocusIn = (e) => { if (esCampoDeTexto(e.target)) { cancelarCierre(); setTecladoAbierto(true); } };
+    const onFocusOut = (e) => {
+      if (esCampoDeTexto(e.target)) {
+        cancelarCierre();
+        // Pequeño retraso para no parpadear si el foco salta a otro campo.
+        cierrePendiente = setTimeout(() => setTecladoAbierto(false), 80);
+      }
+    };
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
+    return () => {
+      cancelarCierre();
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
+    };
+  }, []);
 
   // Guarda con reintentos silenciosos: el storage a veces falla de forma transitoria (red,
   // límite de peticiones) aunque el dato termine guardándose bien, así que no se muestra
@@ -1256,7 +1289,7 @@ export default function Cartera() {
   return (
     <Shell>
       <TopBar total={totalActivo} count={prestamosActivos} />
-      <div style={{ flex: 1, overflowY: "auto", paddingBottom: 84 }}>
+      <div style={{ flex: 1, overflowY: "auto", paddingBottom: tecladoAbierto ? 0 : 84, transition: "padding-bottom 200ms ease" }}>
         {vista === "inicio" && (
           <Inicio
             pendientes={pendientes}
@@ -1331,7 +1364,7 @@ export default function Cartera() {
           />
         )}
       </div>
-      <BottomNav vista={vista} setVista={(v) => { setPresetClienteId(null); setDetalleOrigen("perfil"); setResaltarPagoId(null); setVista(v); }} pendientesCount={pendientes.length} />
+      <BottomNav vista={vista} setVista={(v) => { setPresetClienteId(null); setDetalleOrigen("perfil"); setResaltarPagoId(null); setVista(v); }} pendientesCount={pendientes.length} oculto={tecladoAbierto} />
       {pagoModal && (
         <PagoModal pago={pagoModal} onCancelar={() => setPagoModal(null)} onConfirmar={confirmarPago} />
       )}
@@ -3705,7 +3738,7 @@ function StatCard({ label, value, sub, color, onClick, wide }) {
   );
 }
 
-function BottomNav({ vista, setVista, pendientesCount }) {
+function BottomNav({ vista, setVista, pendientesCount, oculto }) {
   const items = [
     { key: "inicio", label: "Inicio", icon: Home, badge: pendientesCount },
     { key: "clientes", label: "Clientes", icon: Users },
@@ -3713,7 +3746,15 @@ function BottomNav({ vista, setVista, pendientesCount }) {
     { key: "nuevo", label: "Nuevo", icon: Plus },
   ];
   return (
-    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, display: "flex", borderTop: "1px solid var(--border)", background: "var(--surface)", paddingBottom: "max(6px, env(safe-area-inset-bottom))" }}>
+    <div style={{
+      position: "absolute", bottom: 0, left: 0, right: 0, display: "flex",
+      borderTop: "1px solid var(--border)", background: "var(--surface)",
+      paddingBottom: "max(6px, env(safe-area-inset-bottom))",
+      transform: oculto ? "translateY(100%)" : "translateY(0)",
+      opacity: oculto ? 0 : 1,
+      pointerEvents: oculto ? "none" : "auto",
+      transition: "transform 200ms ease, opacity 200ms ease",
+    }}>
       {items.map((it) => {
         const Icon = it.icon;
         const active = vista === it.key;
