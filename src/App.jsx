@@ -914,20 +914,25 @@ export default function Cartera() {
 
   // Oculta el menú inferior mientras el teclado está abierto y lo vuelve a
   // mostrar al cerrarlo, en vez de dejarlo fijo y generar un hueco vacío
-  // entre el teclado y el menú. En vez de detectar esto por eventos de
-  // "foco" (que fallan con campos que se autoenfocan, como el de "Monto que
-  // el cliente pagará"), medimos directamente cuánto espacio real le queda
-  // a la pantalla: si visualViewport (lo que realmente se ve) es mucho más
-  // chico que el alto total de la ventana, es porque el teclado se comió
-  // esa diferencia.
+  // entre el teclado y el menú.
+  //
+  // OJO: en este navegador comprobamos que window.innerHeight YA viene
+  // recortado igual que visualViewport.height cuando el teclado está
+  // abierto (ambos dieron 362), así que compararlos entre sí nunca detecta
+  // nada. En su lugar, guardamos la altura más grande que hemos visto
+  // (que corresponde a cuando el teclado está cerrado) y comparamos la
+  // altura actual contra ESA referencia — así si el teclado se come parte
+  // de la pantalla, sí lo notamos.
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return; // navegador muy antiguo sin soporte: dejamos el menú fijo, como antes.
     const UMBRAL_PX = 150; // margen de sobra para no confundir con la barra de direcciones
+    let alturaMax = vv.height;
     const detectarTeclado = () => {
-      const diferencia = window.innerHeight - vv.height;
+      if (vv.height > alturaMax) alturaMax = vv.height;
+      const diferencia = alturaMax - vv.height;
       setTecladoAbierto(diferencia > UMBRAL_PX);
-      setDebugTeclado({ innerHeight: window.innerHeight, vvHeight: Math.round(vv.height), diferencia: Math.round(diferencia) }); // ⚠️ temporal
+      setDebugTeclado({ innerHeight: window.innerHeight, vvHeight: Math.round(vv.height), alturaMax: Math.round(alturaMax), diferencia: Math.round(diferencia) }); // ⚠️ temporal
     };
     detectarTeclado();
     vv.addEventListener("resize", detectarTeclado);
@@ -1285,7 +1290,7 @@ export default function Cartera() {
     <Shell>
       {debugTeclado && (
         <div style={{ position: "fixed", top: 4, left: 4, right: 4, zIndex: 9999, background: "rgba(0,0,0,0.85)", color: "#0f0", fontFamily: "monospace", fontSize: 11, padding: "4px 8px", borderRadius: 6, pointerEvents: "none" }}>
-          DEBUG teclado — innerHeight: {debugTeclado.innerHeight} · vv.height: {debugTeclado.vvHeight} · diferencia: {debugTeclado.diferencia} · abierto: {String(tecladoAbierto)}
+          DEBUG teclado — innerHeight: {debugTeclado.innerHeight} · vv.height: {debugTeclado.vvHeight} · alturaMax: {debugTeclado.alturaMax} · diferencia: {debugTeclado.diferencia} · abierto: {String(tecladoAbierto)}
         </div>
       )}
       <TopBar total={totalActivo} count={prestamosActivos} />
@@ -2171,7 +2176,7 @@ function NuevoPrestamo({ clientes, auxiliares, presetClienteId, onGuardar, onCan
 
       {modoCliente === "nuevo" && (
         <>
-          <Field label="Nombre completo"><input value={nombre} onChange={(e) => setNombre(e.target.value)} style={inputStyle} placeholder="Ej. Juana Pérez López" /></Field>
+          <Field label="Nombre completo"><input value={nombre} onChange={(e) => setNombre(e.target.value)} style={inputStyle} placeholder="Ej. Juana Pérez López" autoFocus /></Field>
           <Field label="Lugar donde labora"><input value={trabajo} onChange={(e) => setTrabajo(e.target.value)} style={inputStyle} placeholder="Ej. Farmacia San Rafael" /></Field>
           <Field label="Dónde vive (domicilio)"><input value={domicilio} onChange={(e) => setDomicilio(e.target.value)} style={inputStyle} placeholder="Calle, número, colonia" /></Field>
           <CampoTelefono
