@@ -30,10 +30,17 @@
            forma consistente el espacio real disponible en TODOS los
            navegadores (Safari, Chrome, WebViews de apps como WhatsApp/
            Instagram, etc.), incluso cuando su barra de direcciones u otros
-           botones cambian de tamaño o aparecen/desaparecen. */
+           botones cambian de tamaño o aparecen/desaparecen.
+           Al abrirla como app instalada en pantalla de inicio (standalone),
+           visualViewport.height NO incluye la franja del indicador de inicio
+           de iPhone (safe-area-inset-bottom), así que la sumamos aparte para
+           que el fondo de la app llegue hasta el borde real de la pantalla
+           en vez de dejar un hueco negro sin usar debajo del menú. Cuando el
+           teclado está abierto, iOS reporta ese inset como 0, así que sumarlo
+           siempre es seguro y no afecta ese caso. */
         height: 100vh;
         height: 100dvh;
-        height: var(--app-height, 100dvh);
+        height: calc(var(--app-height, 100dvh) + env(safe-area-inset-bottom, 0px));
       }
     </style>
     <script>
