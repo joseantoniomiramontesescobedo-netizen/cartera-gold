@@ -975,13 +975,18 @@ export default function Cartera() {
     if (contenidoRef.current) contenidoRef.current.scrollTop = 0;
   }, [vista, detalleId, clienteVistaId]);
 
-  // Al enfocar un campo cerca del final de un formulario largo, iOS a veces
-  // desplaza la página más allá de su propio contenido (para "subir" el
-  // campo por encima del teclado), dejando un hueco vacío entre el último
-  // elemento real y el teclado — la página "se corta" como si no hubiera
-  // más contenido. Aquí forzamos que el desplazamiento nunca pase del
-  // límite real del contenido: la parte de abajo de la página siempre es el
-  // tope, sin espacios vacíos de más y sin que el teclado la tape.
+  // Al enfocar un campo, iOS mueve la página para subir ese campo por
+  // encima del teclado — pero como el teclado (y las barras de sugerencia/
+  // autocompletado que cambian de tamaño según el campo) tardan un
+  // instante en terminar su animación, ese cálculo se hace con un tamaño
+  // de pantalla que todavía no es el final, y se pasa del contenido real,
+  // dejando un hueco vacío que crece cada vez más con cada campo nuevo que
+  // se toca. En vez de corregirlo una sola vez a un tiempo fijo (que a
+  // veces cae antes de que la animación termine), lo revisamos varias
+  // veces seguidas durante el primer segundo después de cada cambio, hasta
+  // que el teclado se estabiliza del todo — así el límite de abajo de la
+  // página siempre queda exactamente donde termina el contenido real, sin
+  // huecos y sin tapar los botones que le siguen.
   useEffect(() => {
     const contenedor = contenidoRef.current;
     if (!contenedor) return;
@@ -989,19 +994,33 @@ export default function Cartera() {
       const maximo = contenedor.scrollHeight - contenedor.clientHeight;
       if (contenedor.scrollTop > maximo) contenedor.scrollTop = Math.max(0, maximo);
     };
+    let intervalId = null;
+    const corregirDurante = (ms) => {
+      if (intervalId) clearInterval(intervalId);
+      const fin = Date.now() + ms;
+      intervalId = setInterval(() => {
+        limitarScroll();
+        if (Date.now() >= fin) { clearInterval(intervalId); intervalId = null; }
+      }, 60);
+    };
     const onFocusIn = (e) => {
       const tag = e.target && e.target.tagName;
       if (tag !== "INPUT" && tag !== "TEXTAREA") return;
-      // Se espera a que termine la animación del teclado y el propio ajuste
-      // de scroll de iOS antes de corregir el exceso.
-      setTimeout(limitarScroll, 50);
-      setTimeout(limitarScroll, 350);
+      corregirDurante(900);
     };
+    const onViewportResize = () => corregirDurante(500);
     contenedor.addEventListener("focusin", onFocusIn);
-    if (window.visualViewport) window.visualViewport.addEventListener("resize", limitarScroll);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", onViewportResize);
+      window.visualViewport.addEventListener("scroll", onViewportResize);
+    }
     return () => {
+      if (intervalId) clearInterval(intervalId);
       contenedor.removeEventListener("focusin", onFocusIn);
-      if (window.visualViewport) window.visualViewport.removeEventListener("resize", limitarScroll);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", onViewportResize);
+        window.visualViewport.removeEventListener("scroll", onViewportResize);
+      }
     };
   }, []);
 
