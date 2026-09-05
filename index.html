@@ -18,6 +18,20 @@
         height: 100%;
         overscroll-behavior-y: none;
       }
+      html, body {
+        /* "position: fixed" (no solo overflow:hidden) es lo que de verdad le
+           quita a iOS la posibilidad de "recorrer" (panear) la página entera
+           al enfocar un campo. Con solo overflow:hidden, iOS a veces sigue
+           desplazando toda la ventana visual para subir el campo enfocado
+           por encima del teclado, revelando un hueco vacío debajo de
+           nuestro contenido — un bug conocido de Safari/WebKit. Al fijar la
+           página por completo, forzamos a que el ÚNICO elemento que pueda
+           desplazarse sea nuestro propio contenedor de contenido interno,
+           que si sabe hasta dónde llega su contenido real. */
+        position: fixed;
+        inset: 0;
+        width: 100%;
+      }
       body {
         margin: 0;
         background: #10161D;
