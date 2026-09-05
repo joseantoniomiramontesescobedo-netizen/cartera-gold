@@ -1982,12 +1982,12 @@ function EditarCliente({ cliente, onGuardar, onCancelar }) {
   }
 
   return (
-    <form onSubmit={submit} style={{ padding: "16px 16px 24px" }}>
+    <form onSubmit={submit} style={{ padding: "16px 16px 24px" }} autoComplete="off">
       <button type="button" onClick={onCancelar} style={{ ...btnGhost, marginBottom: 14, padding: "6px 10px" }}><ChevronLeft size={16} /> Cancelar</button>
       <div style={{ fontFamily: "var(--font-display)", fontSize: 19, marginBottom: 16 }}>Editar cliente</div>
-      <Field label="Nombre completo"><input value={nombre} onChange={(e) => setNombre(e.target.value)} style={inputStyle} /></Field>
-      <Field label="Lugar donde labora"><input value={trabajo} onChange={(e) => setTrabajo(e.target.value)} style={inputStyle} /></Field>
-      <Field label="Dónde vive (domicilio)"><input value={domicilio} onChange={(e) => setDomicilio(e.target.value)} style={inputStyle} /></Field>
+      <Field label="Nombre completo"><input value={nombre} onChange={(e) => setNombre(e.target.value)} style={inputStyle} autoComplete="off" /></Field>
+      <Field label="Lugar donde labora"><input value={trabajo} onChange={(e) => setTrabajo(e.target.value)} style={inputStyle} autoComplete="off" /></Field>
+      <Field label="Dónde vive (domicilio)"><input value={domicilio} onChange={(e) => setDomicilio(e.target.value)} style={inputStyle} autoComplete="off" /></Field>
       <CampoTelefono
         label="Teléfono celular (10 dígitos)"
         value={telefono}
@@ -2142,7 +2142,7 @@ function NuevoPrestamo({ clientes, auxiliares, presetClienteId, onGuardar, onCan
   const clientesFiltrados = clientes.filter((c) => c.nombre.toLowerCase().includes(busqueda.toLowerCase()));
 
   return (
-    <form onSubmit={submit} style={{ padding: "16px 16px 24px" }}>
+    <form onSubmit={submit} style={{ padding: "16px 16px 24px" }} autoComplete="off">
       <div style={{ fontFamily: "var(--font-display)", fontSize: 19, marginBottom: 16 }}>Nuevo préstamo</div>
 
       <SectionLabel icon={Users}>Cliente</SectionLabel>
@@ -2178,9 +2178,9 @@ function NuevoPrestamo({ clientes, auxiliares, presetClienteId, onGuardar, onCan
 
       {modoCliente === "nuevo" && (
         <>
-          <Field label="Nombre completo"><input value={nombre} onChange={(e) => setNombre(e.target.value)} style={inputStyle} placeholder="Ej. Juana Pérez López" /></Field>
-          <Field label="Lugar donde labora"><input value={trabajo} onChange={(e) => setTrabajo(e.target.value)} style={inputStyle} placeholder="Ej. Farmacia San Rafael" /></Field>
-          <Field label="Dónde vive (domicilio)"><input value={domicilio} onChange={(e) => setDomicilio(e.target.value)} style={inputStyle} placeholder="Calle, número, colonia" /></Field>
+          <Field label="Nombre completo"><input value={nombre} onChange={(e) => setNombre(e.target.value)} style={inputStyle} placeholder="Ej. Juana Pérez López" autoComplete="off" /></Field>
+          <Field label="Lugar donde labora"><input value={trabajo} onChange={(e) => setTrabajo(e.target.value)} style={inputStyle} placeholder="Ej. Farmacia San Rafael" autoComplete="off" /></Field>
+          <Field label="Dónde vive (domicilio)"><input value={domicilio} onChange={(e) => setDomicilio(e.target.value)} style={inputStyle} placeholder="Calle, número, colonia" autoComplete="off" /></Field>
           <CampoTelefono
             label="Teléfono celular (10 dígitos)"
             value={telefono}
@@ -2191,7 +2191,7 @@ function NuevoPrestamo({ clientes, auxiliares, presetClienteId, onGuardar, onCan
         </>
       )}
 
-      <Field label="Fecha en que se genera este préstamo"><input value={fechaOrigen} onChange={(e) => setFechaOrigen(e.target.value)} type="date" style={inputStyle} /></Field>
+      <Field label="Fecha en que se genera este préstamo"><input value={fechaOrigen} onChange={(e) => setFechaOrigen(e.target.value)} type="date" style={{ ...inputStyle, height: 40, lineHeight: "20px" }} /></Field>
 
       <SectionLabel icon={FileText}>Frecuencia de cobro</SectionLabel>
       <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
@@ -2394,7 +2394,7 @@ function NuevoPrestamo({ clientes, auxiliares, presetClienteId, onGuardar, onCan
                   </div>
                 </Field>
               )}
-              <Field label="Nombre del auxiliar"><input value={auxNombre} onChange={(e) => setAuxNombre(e.target.value)} style={inputStyle} placeholder="Ej. Carlos Ruiz" /></Field>
+              <Field label="Nombre del auxiliar"><input value={auxNombre} onChange={(e) => setAuxNombre(e.target.value)} style={inputStyle} placeholder="Ej. Carlos Ruiz" autoComplete="off" /></Field>
               <CampoTelefono
                 label="Teléfono del auxiliar (10 dígitos, para enviarle recordatorios por WhatsApp)"
                 value={auxTelefono}
@@ -2661,7 +2661,7 @@ function PagoModal({ pago, onCancelar, onConfirmar }) {
             {mostrarCalendario && (
               <>
                 <Field label={`Elige la fecha (entre ${fmtDate(fechaMinima)} y hoy)`}>
-                  <input type="date" value={fechaCustom} min={fechaMinima} max={hoyISO} onChange={(e) => setFechaCustom(e.target.value)} style={inputStyle} />
+                  <input type="date" value={fechaCustom} min={fechaMinima} max={hoyISO} onChange={(e) => setFechaCustom(e.target.value)} style={{ ...inputStyle, height: 40, lineHeight: "20px" }} />
                 </Field>
                 <button type="button" onClick={() => elegirFecha(fechaCustom)} disabled={!fechaCustom} style={{ ...btnPrimary, width: "100%", justifyContent: "center", marginBottom: 4 }}>Usar {fechaCustom ? fmtDate(fechaCustom) : "esta fecha"}</button>
               </>
@@ -3329,6 +3329,7 @@ function CampoTelefono({ label, value, onChange, onNombreDetectado, placeholder 
           style={{ ...inputStyle, flex: 1 }}
           placeholder={placeholder}
           inputMode="numeric"
+          autoComplete="off"
         />
         {soportado && (
           <button
