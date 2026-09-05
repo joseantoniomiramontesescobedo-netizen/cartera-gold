@@ -2191,7 +2191,11 @@ function NuevoPrestamo({ clientes, auxiliares, presetClienteId, onGuardar, onCan
         </>
       )}
 
-      <Field label="Fecha en que se genera este préstamo"><input value={fechaOrigen} onChange={(e) => setFechaOrigen(e.target.value)} type="date" style={{ ...inputStyle, height: 40, lineHeight: "20px" }} /></Field>
+      <Field label="Fecha en que se genera este préstamo">
+        <div style={{ overflow: "hidden", borderRadius: 8 }}>
+          <input value={fechaOrigen} onChange={(e) => setFechaOrigen(e.target.value)} type="date" style={{ ...inputStyle, height: 40, lineHeight: "20px", display: "block", width: "100%", maxWidth: "100%" }} />
+        </div>
+      </Field>
 
       <SectionLabel icon={FileText}>Frecuencia de cobro</SectionLabel>
       <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
@@ -2661,7 +2665,9 @@ function PagoModal({ pago, onCancelar, onConfirmar }) {
             {mostrarCalendario && (
               <>
                 <Field label={`Elige la fecha (entre ${fmtDate(fechaMinima)} y hoy)`}>
-                  <input type="date" value={fechaCustom} min={fechaMinima} max={hoyISO} onChange={(e) => setFechaCustom(e.target.value)} style={{ ...inputStyle, height: 40, lineHeight: "20px" }} />
+                  <div style={{ overflow: "hidden", borderRadius: 8 }}>
+                    <input type="date" value={fechaCustom} min={fechaMinima} max={hoyISO} onChange={(e) => setFechaCustom(e.target.value)} style={{ ...inputStyle, height: 40, lineHeight: "20px", display: "block", width: "100%", maxWidth: "100%" }} />
+                  </div>
                 </Field>
                 <button type="button" onClick={() => elegirFecha(fechaCustom)} disabled={!fechaCustom} style={{ ...btnPrimary, width: "100%", justifyContent: "center", marginBottom: 4 }}>Usar {fechaCustom ? fmtDate(fechaCustom) : "esta fecha"}</button>
               </>
@@ -3758,7 +3764,7 @@ function BottomNav({ vista, setVista, pendientesCount, oculto }) {
     // bordes, y maneja el mismo mostrar/ocultar de siempre (con teclado).
     <div style={{
       position: "absolute", left: 12, right: 12,
-      bottom: "max(12px, calc(env(safe-area-inset-bottom) + 8px))",
+      bottom: "max(6px, env(safe-area-inset-bottom))",
       transform: oculto ? "translateY(140%)" : "translateY(0)",
       opacity: oculto ? 0 : 1,
       pointerEvents: oculto ? "none" : "auto",
