@@ -1296,7 +1296,7 @@ export default function Cartera() {
   return (
     <Shell>
       <TopBar total={totalActivo} count={prestamosActivos} />
-      <div ref={contenidoRef} style={{ flex: 1, overflowY: "auto", paddingBottom: tecladoAbierto ? 0 : 96, transition: "padding-bottom 200ms ease" }}>
+      <div ref={contenidoRef} style={{ flex: 1, overflowY: "auto", paddingBottom: tecladoAbierto ? 0 : 116, transition: "padding-bottom 200ms ease" }}>
         {vista === "inicio" && (
           <Inicio
             pendientes={pendientes}
@@ -3764,7 +3764,7 @@ function BottomNav({ vista, setVista, pendientesCount, oculto }) {
     // bordes, y maneja el mismo mostrar/ocultar de siempre (con teclado).
     <div style={{
       position: "absolute", left: 12, right: 12,
-      bottom: "max(6px, env(safe-area-inset-bottom))",
+      bottom: "max(28px, calc(env(safe-area-inset-bottom) + 22px))",
       transform: oculto ? "translateY(140%)" : "translateY(0)",
       opacity: oculto ? 0 : 1,
       pointerEvents: oculto ? "none" : "auto",
