@@ -1296,7 +1296,7 @@ export default function Cartera() {
   return (
     <Shell>
       <TopBar total={totalActivo} count={prestamosActivos} />
-      <div ref={contenidoRef} style={{ flex: 1, overflowY: "auto", paddingBottom: tecladoAbierto ? 0 : 84, transition: "padding-bottom 200ms ease" }}>
+      <div ref={contenidoRef} style={{ flex: 1, overflowY: "auto", paddingBottom: tecladoAbierto ? 0 : 96, transition: "padding-bottom 200ms ease" }}>
         {vista === "inicio" && (
           <Inicio
             pendientes={pendientes}
@@ -3754,28 +3754,43 @@ function BottomNav({ vista, setVista, pendientesCount, oculto }) {
     { key: "nuevo", label: "Nuevo", icon: Plus },
   ];
   return (
+    // Contenedor exterior: solo posiciona la barra flotante, separada de los
+    // bordes, y maneja el mismo mostrar/ocultar de siempre (con teclado).
     <div style={{
-      position: "absolute", bottom: 0, left: 0, right: 0, display: "flex",
-      borderTop: "1px solid var(--border)", background: "var(--surface)",
-      paddingBottom: "max(6px, env(safe-area-inset-bottom))",
-      transform: oculto ? "translateY(100%)" : "translateY(0)",
+      position: "absolute", left: 12, right: 12,
+      bottom: "max(12px, calc(env(safe-area-inset-bottom) + 8px))",
+      transform: oculto ? "translateY(140%)" : "translateY(0)",
       opacity: oculto ? 0 : 1,
       pointerEvents: oculto ? "none" : "auto",
       transition: "transform 200ms ease, opacity 200ms ease",
     }}>
-      {items.map((it) => {
-        const Icon = it.icon;
-        const active = vista === it.key;
-        return (
-          <button key={it.key} onClick={() => setVista(it.key)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "10px 0 12px", background: "transparent", border: "none", color: active ? "var(--gold)" : "var(--muted)", cursor: "pointer", position: "relative" }}>
-            <Icon size={19} />
-            <span style={{ fontSize: 11 }}>{it.label}</span>
-            {it.badge > 0 && (
-              <span style={{ position: "absolute", top: 4, right: "calc(50% - 22px)", background: "var(--red)", color: "#fff", fontSize: 10, fontWeight: 700, borderRadius: 8, minWidth: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px" }}>{it.badge}</span>
-            )}
-          </button>
-        );
-      })}
+      {/* Barra "vidrio líquido": traslúcida, con desenfoque de lo que hay
+          detrás, esquinas redondeadas y un borde y sombra suaves para que
+          se vea flotando sobre el contenido, en vez de pegada al borde. */}
+      <div style={{
+        display: "flex",
+        background: "rgba(28, 33, 41, 0.72)",
+        backdropFilter: "blur(22px) saturate(180%)",
+        WebkitBackdropFilter: "blur(22px) saturate(180%)",
+        border: "1px solid rgba(255,255,255,0.10)",
+        borderRadius: 26,
+        boxShadow: "0 8px 28px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)",
+        overflow: "hidden",
+      }}>
+        {items.map((it) => {
+          const Icon = it.icon;
+          const active = vista === it.key;
+          return (
+            <button key={it.key} onClick={() => setVista(it.key)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "10px 0 9px", background: "transparent", border: "none", color: active ? "var(--gold)" : "var(--muted)", cursor: "pointer", position: "relative" }}>
+              <Icon size={19} />
+              <span style={{ fontSize: 11 }}>{it.label}</span>
+              {it.badge > 0 && (
+                <span style={{ position: "absolute", top: 4, right: "calc(50% - 22px)", background: "var(--red)", color: "#fff", fontSize: 10, fontWeight: 700, borderRadius: 8, minWidth: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px" }}>{it.badge}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
