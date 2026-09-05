@@ -125,6 +125,18 @@ function pagosPorMes(f) {
 
 function fmtMoney(n) { return "$" + Number(n || 0).toLocaleString("es-MX", { maximumFractionDigits: 0 }); }
 function fmtDate(iso) { return parseISO(iso).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" }); }
+
+// Texto compacto para mostrar una fecha ya elegida: "Hoy" / "Ayer" cuando
+// aplica (para no repetir la fecha completa si es obvio), o si no,
+// "Día de la semana, día mes año" (ej. "Sábado, 5 sep 2026").
+function describirFecha(iso) {
+  if (!iso) return "";
+  const hoyISO = toISO(new Date());
+  const ayerISO = toISO(new Date(Date.now() - 86400000));
+  if (iso === hoyISO) return "Hoy";
+  if (iso === ayerISO) return "Ayer";
+  return `${DIAS_SEMANA[parseISO(iso).getDay()]}, ${fmtDate(iso)}`;
+}
 function diasHasta(iso) { const hoy = new Date(); hoy.setHours(0, 0, 0, 0); return Math.round((parseISO(iso) - hoy) / 86400000); }
 // Estado del préstamo según cuántos MESES de interés acumulado se deben, en relación a
 // UN periodo (interesMensualDe). Ejemplo con un préstamo al 20% mensual ($1,000/mes):
@@ -2222,9 +2234,7 @@ function NuevoPrestamo({ clientes, auxiliares, presetClienteId, duenoCartera, on
       )}
 
       <Field label="Fecha en que se genera este préstamo">
-        <div style={{ overflow: "hidden", borderRadius: 8 }}>
-          <input value={fechaOrigen} onChange={(e) => setFechaOrigen(e.target.value)} type="date" style={{ ...inputStyle, height: 40, lineHeight: "20px", display: "block", width: "100%", maxWidth: "100%" }} />
-        </div>
+        <CampoFecha value={fechaOrigen} onChange={setFechaOrigen} />
       </Field>
 
       <SectionLabel icon={FileText}>Frecuencia de cobro</SectionLabel>
@@ -2399,7 +2409,7 @@ function NuevoPrestamo({ clientes, auxiliares, presetClienteId, duenoCartera, on
 
       {necesitaNombreDueno && (
         <Field label="Tu nombre completo (se usará para el título de tu cartera)">
-          <input value={miNombreDueno} onChange={(e) => setMiNombreDueno(e.target.value)} style={inputStyle} placeholder="Ej. José Antonio Miramontes Escobedo" autoComplete="off" />
+          <input value={miNombreDueno} onChange={(e) => setMiNombreDueno(e.target.value)} style={inputStyle} placeholder="Ej. José Roberto Rojas López" autoComplete="off" />
         </Field>
       )}
 
@@ -2701,9 +2711,7 @@ function PagoModal({ pago, onCancelar, onConfirmar }) {
             {mostrarCalendario && (
               <>
                 <Field label={`Elige la fecha (entre ${fmtDate(fechaMinima)} y hoy)`}>
-                  <div style={{ overflow: "hidden", borderRadius: 8 }}>
-                    <input type="date" value={fechaCustom} min={fechaMinima} max={hoyISO} onChange={(e) => setFechaCustom(e.target.value)} style={{ ...inputStyle, height: 40, lineHeight: "20px", display: "block", width: "100%", maxWidth: "100%" }} />
-                  </div>
+                  <CampoFecha value={fechaCustom} onChange={setFechaCustom} min={fechaMinima} max={hoyISO} />
                 </Field>
                 <button type="button" onClick={() => elegirFecha(fechaCustom)} disabled={!fechaCustom} style={{ ...btnPrimary, width: "100%", justifyContent: "center", marginBottom: 4 }}>Usar {fechaCustom ? fmtDate(fechaCustom) : "esta fecha"}</button>
               </>
@@ -3316,6 +3324,30 @@ function Field({ label, children, style }) {
     <div style={{ marginBottom: 14, ...style }}>
       <label style={{ display: "block", fontSize: 12, color: "var(--muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</label>
       {children}
+    </div>
+  );
+}
+
+// Campo de fecha compacto: mantiene el <input type="date"> real (para seguir
+// usando el calendario nativo al tocarlo), pero lo deja invisible y recortado
+// a una altura fija — porque en iOS el control de fecha ignora el alto que le
+// pongamos por CSS y siempre se dibuja más grande de lo necesario. Encima se
+// muestra un texto propio, centrado y compacto: "Hoy" / "Ayer" cuando aplica,
+// o "Día de la semana, día mes año" en cualquier otro caso.
+function CampoFecha({ value, onChange, min, max }) {
+  return (
+    <div style={{ position: "relative", height: 40, overflow: "hidden", borderRadius: 8 }}>
+      <input
+        type="date"
+        value={value}
+        min={min}
+        max={max}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ ...inputStyle, position: "absolute", inset: 0, height: 40, width: "100%", opacity: 0 }}
+      />
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", fontSize: 14, fontFamily: "var(--font-body)" }}>
+        {value ? describirFecha(value) : "Selecciona una fecha"}
+      </div>
     </div>
   );
 }
