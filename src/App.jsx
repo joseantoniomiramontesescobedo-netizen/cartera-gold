@@ -895,10 +895,23 @@ const DOC_CATS = [
 
 /* ---------------- app ---------------- */
 
+// De un nombre completo devuelve "primer nombre + primer apellido" para
+// usarlo como título corto de la cartera. Ej: "José Antonio Miramontes
+// Escobedo" -> "José Miramontes" (se asume 2 nombres + 2 apellidos cuando
+// hay 4 palabras o más; con 3 palabras se asume 1 nombre + 2 apellidos).
+function nombreCortoDueno(nombreCompleto) {
+  const partes = (nombreCompleto || "").trim().split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return "";
+  if (partes.length <= 2) return partes.join(" ");
+  if (partes.length === 3) return `${partes[0]} ${partes[1]}`;
+  return `${partes[0]} ${partes[2]}`;
+}
+
 export default function Cartera() {
   const [clientes, setClientes] = useState([]);
   const [prestamos, setPrestamos] = useState([]);
   const [auxiliares, setAuxiliares] = useState([]);
+  const [duenoCartera, setDuenoCartera] = useState(""); // nombre completo del dueño de la cartera; se pide una sola vez
   const [loaded, setLoaded] = useState(false);
   const [vista, setVista] = useState("inicio");
   const [detalleId, setDetalleId] = useState(null);
@@ -974,9 +987,11 @@ export default function Cartera() {
         const rc = await window.storage.get("clientes", false).catch(() => null);
         const rp = await window.storage.get("prestamos", false).catch(() => null);
         const ra = await window.storage.get("auxiliares", false).catch(() => null);
+        const rd = await window.storage.get("duenoCartera", false).catch(() => null);
         if (rc && rc.value) setClientes(JSON.parse(rc.value));
         if (rp && rp.value) setPrestamos(JSON.parse(rp.value));
         if (ra && ra.value) setAuxiliares(JSON.parse(ra.value));
+        if (rd && rd.value) setDuenoCartera(rd.value);
       } catch (e) { /* sin datos aún */ }
       finally { setLoaded(true); }
     })();
@@ -1091,7 +1106,11 @@ export default function Cartera() {
     prestamoIds.forEach((id) => { try { window.storage.delete("docs:" + id, false); } catch (e) { /* no había docs */ } });
   }
 
-  function guardarNuevoPrestamo({ clienteId, clienteNuevo, prestamo }) {
+  function guardarNuevoPrestamo({ clienteId, clienteNuevo, prestamo, duenoNombre }) {
+    if (duenoNombre && !duenoCartera) {
+      setDuenoCartera(duenoNombre);
+      window.storage.set("duenoCartera", duenoNombre, false).catch(() => {});
+    }
     let cid = clienteId;
     if (clienteNuevo) {
       const nuevoCliente = { ...clienteNuevo, id: uid() };
@@ -1295,7 +1314,7 @@ export default function Cartera() {
 
   return (
     <Shell>
-      <TopBar total={totalActivo} count={prestamosActivos} />
+      <TopBar total={totalActivo} count={prestamosActivos} duenoCartera={duenoCartera} />
       <div ref={contenidoRef} style={{ flex: 1, overflowY: "auto", paddingBottom: tecladoAbierto ? 0 : 116, transition: "padding-bottom 200ms ease" }}>
         {vista === "inicio" && (
           <Inicio
@@ -1348,6 +1367,7 @@ export default function Cartera() {
             clientes={clientes}
             auxiliares={auxiliares}
             presetClienteId={presetClienteId}
+            duenoCartera={duenoCartera}
             onGuardar={guardarNuevoPrestamo}
             onCancelar={() => setVista(presetClienteId ? "perfil" : "clientes")}
           />
@@ -1394,10 +1414,11 @@ function Shell({ children }) {
   );
 }
 
-function TopBar({ total, count }) {
+function TopBar({ total, count, duenoCartera }) {
+  const titulo = duenoCartera ? `Cartera ${nombreCortoDueno(duenoCartera)}` : "Cartera";
   return (
-    <div style={{ padding: "22px 20px 18px", borderBottom: "1px solid var(--border)", background: "linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%)" }}>
-      <div style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 700 }}>Cartera</div>
+    <div style={{ padding: "20px 20px 18px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)", borderBottom: "1px solid var(--border)", background: "linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%)" }}>
+      <div style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 700 }}>{titulo}</div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 10 }}>
         <div>
           <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Adeudo activo</div>
@@ -2005,7 +2026,7 @@ function EditarCliente({ cliente, onGuardar, onCancelar }) {
 
 /* ---------------- formulario nuevo préstamo ---------------- */
 
-function NuevoPrestamo({ clientes, auxiliares, presetClienteId, onGuardar, onCancelar }) {
+function NuevoPrestamo({ clientes, auxiliares, presetClienteId, duenoCartera, onGuardar, onCancelar }) {
   const clientePreset = presetClienteId ? clientes.find((c) => c.id === presetClienteId) : null;
 
   const [modoCliente, setModoCliente] = useState(clientePreset ? "existente" : (clientes.length > 0 ? "existente" : "nuevo"));
@@ -2049,6 +2070,12 @@ function NuevoPrestamo({ clientes, auxiliares, presetClienteId, onGuardar, onCan
   const [principalNombre, setPrincipalNombre] = useState("");
   const [principalTelefono, setPrincipalTelefono] = useState("");
 
+  // Se pregunta una sola vez, la primera vez que alguien registra un
+  // préstamo como "prestador principal": ese nombre completo es el que
+  // luego se usa para personalizar el título "Cartera {Nombre} {Apellido}".
+  const [miNombreDueno, setMiNombreDueno] = useState("");
+  const necesitaNombreDueno = miRolPrestamo === "principal" && !duenoCartera;
+
   const [tocado, setTocado] = useState(false);
 
   const frecuencia = tipoFrec === "semanal" ? { tipo: "semanal", diaSemana }
@@ -2076,7 +2103,8 @@ function NuevoPrestamo({ clientes, auxiliares, presetClienteId, onGuardar, onCan
 
   const valido = clienteValido && monto && Number(monto) > 0 && tasaInteres !== "" && frecuenciaCompleta &&
     (usandoManual ? cuotaCustom !== "" && Number(cuotaCustom) > 0 : cuotaSugerida > 0) &&
-    (soyAuxiliar ? (principalNombre.trim() && principalTelOk) : (!tieneAuxiliar || (auxNombre.trim() && auxTelOk && auxPorcentaje !== "")));
+    (soyAuxiliar ? (principalNombre.trim() && principalTelOk) : (!tieneAuxiliar || (auxNombre.trim() && auxTelOk && auxPorcentaje !== ""))) &&
+    (!necesitaNombreDueno || miNombreDueno.trim().length > 0);
 
   const auxMontoPreview = tieneAuxiliar && auxPorcentaje !== "" && cuotaFinal ? Math.round((cuotaFinal * Number(auxPorcentaje)) / 100) : 0;
 
@@ -2093,6 +2121,7 @@ function NuevoPrestamo({ clientes, auxiliares, presetClienteId, onGuardar, onCan
   if (tieneAuxiliar && auxPorcentaje === "") faltantes.push("porcentaje del auxiliar");
   if (soyAuxiliar && !principalNombre.trim()) faltantes.push("nombre del prestador principal");
   if (soyAuxiliar && !principalTelOk) faltantes.push(`teléfono del prestador principal a 10 dígitos (llevas ${principalTelefono.replace(/\D/g, "").length})`);
+  if (necesitaNombreDueno && !miNombreDueno.trim()) faltantes.push("tu nombre completo (para el título de tu cartera)");
 
   function toggleDiaPersonalizado(d) {
     setDiasSemana((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort());
@@ -2130,11 +2159,12 @@ function NuevoPrestamo({ clientes, auxiliares, presetClienteId, onGuardar, onCan
       } : {}),
     };
     if (modoCliente === "existente") {
-      onGuardar({ clienteId: clienteSel, prestamo: prestamoData });
+      onGuardar({ clienteId: clienteSel, prestamo: prestamoData, duenoNombre: necesitaNombreDueno ? miNombreDueno.trim() : undefined });
     } else {
       onGuardar({
         clienteNuevo: { nombre: nombre.trim(), trabajo: trabajo.trim(), domicilio: domicilio.trim(), telefono: telefono.replace(/\D/g, "") },
         prestamo: prestamoData,
+        duenoNombre: necesitaNombreDueno ? miNombreDueno.trim() : undefined,
       });
     }
   }
@@ -2366,6 +2396,12 @@ function NuevoPrestamo({ clientes, auxiliares, presetClienteId, onGuardar, onCan
         <button type="button" onClick={() => setMiRolPrestamo("principal")} style={{ ...pillBtn, flex: 1, background: !soyAuxiliar ? "var(--gold)" : "var(--surface2)", color: !soyAuxiliar ? "#1A130A" : "var(--text)", borderColor: !soyAuxiliar ? "var(--gold)" : "var(--border)" }}>Soy el prestador principal</button>
         <button type="button" onClick={() => setMiRolPrestamo("auxiliar")} style={{ ...pillBtn, flex: 1, background: soyAuxiliar ? "var(--gold)" : "var(--surface2)", color: soyAuxiliar ? "#1A130A" : "var(--text)", borderColor: soyAuxiliar ? "var(--gold)" : "var(--border)" }}>Soy el auxiliar de otra persona</button>
       </div>
+
+      {necesitaNombreDueno && (
+        <Field label="Tu nombre completo (se usará para el título de tu cartera)">
+          <input value={miNombreDueno} onChange={(e) => setMiNombreDueno(e.target.value)} style={inputStyle} placeholder="Ej. José Antonio Miramontes Escobedo" autoComplete="off" />
+        </Field>
+      )}
 
       {soyAuxiliar ? (
         <>
