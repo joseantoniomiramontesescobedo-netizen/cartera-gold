@@ -975,6 +975,36 @@ export default function Cartera() {
     if (contenidoRef.current) contenidoRef.current.scrollTop = 0;
   }, [vista, detalleId, clienteVistaId]);
 
+  // Al enfocar un campo cerca del final de un formulario largo, iOS a veces
+  // desplaza la página más allá de su propio contenido (para "subir" el
+  // campo por encima del teclado), dejando un hueco vacío entre el último
+  // elemento real y el teclado — la página "se corta" como si no hubiera
+  // más contenido. Aquí forzamos que el desplazamiento nunca pase del
+  // límite real del contenido: la parte de abajo de la página siempre es el
+  // tope, sin espacios vacíos de más y sin que el teclado la tape.
+  useEffect(() => {
+    const contenedor = contenidoRef.current;
+    if (!contenedor) return;
+    const limitarScroll = () => {
+      const maximo = contenedor.scrollHeight - contenedor.clientHeight;
+      if (contenedor.scrollTop > maximo) contenedor.scrollTop = Math.max(0, maximo);
+    };
+    const onFocusIn = (e) => {
+      const tag = e.target && e.target.tagName;
+      if (tag !== "INPUT" && tag !== "TEXTAREA") return;
+      // Se espera a que termine la animación del teclado y el propio ajuste
+      // de scroll de iOS antes de corregir el exceso.
+      setTimeout(limitarScroll, 50);
+      setTimeout(limitarScroll, 350);
+    };
+    contenedor.addEventListener("focusin", onFocusIn);
+    if (window.visualViewport) window.visualViewport.addEventListener("resize", limitarScroll);
+    return () => {
+      contenedor.removeEventListener("focusin", onFocusIn);
+      if (window.visualViewport) window.visualViewport.removeEventListener("resize", limitarScroll);
+    };
+  }, []);
+
   // Guarda con reintentos silenciosos: el storage a veces falla de forma transitoria (red,
   // límite de peticiones) aunque el dato termine guardándose bien, así que no se muestra
   // ninguna leyenda de error al usuario — si de verdad fallara, la app no dejaría avanzar.
