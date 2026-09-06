@@ -935,7 +935,6 @@ export default function Cartera() {
   const [paqueteImportar, setPaqueteImportar] = useState(null);
   const [importError, setImportError] = useState("");
   const [tecladoAbierto, setTecladoAbierto] = useState(false);
-  const [debugScroll, setDebugScroll] = useState(null); // ⚠️ temporal, solo para diagnosticar
   const contenidoRef = useRef(null);
 
   // Oculta el menú inferior mientras el teclado está abierto y lo vuelve a
@@ -994,14 +993,6 @@ export default function Cartera() {
     const limitarScroll = () => {
       const maximo = contenedor.scrollHeight - contenedor.clientHeight;
       if (contenedor.scrollTop > maximo) contenedor.scrollTop = Math.max(0, maximo);
-      setDebugScroll({ // ⚠️ temporal, solo para diagnosticar
-        appHeight: getComputedStyle(document.documentElement).getPropertyValue("--app-height"),
-        vv: window.visualViewport ? Math.round(window.visualViewport.height) : null,
-        clientHeight: contenedor.clientHeight,
-        scrollHeight: contenedor.scrollHeight,
-        scrollTop: Math.round(contenedor.scrollTop),
-        maximo: Math.round(maximo),
-      });
     };
     let intervalId = null;
     const corregirDurante = (ms) => {
@@ -1019,7 +1010,6 @@ export default function Cartera() {
     };
     const onViewportResize = () => corregirDurante(500);
     contenedor.addEventListener("focusin", onFocusIn);
-    contenedor.addEventListener("scroll", limitarScroll); // ⚠️ temporal: mantiene el diagnóstico actualizado en vivo
     if (window.visualViewport) {
       window.visualViewport.addEventListener("resize", onViewportResize);
       window.visualViewport.addEventListener("scroll", onViewportResize);
@@ -1027,13 +1017,14 @@ export default function Cartera() {
     return () => {
       if (intervalId) clearInterval(intervalId);
       contenedor.removeEventListener("focusin", onFocusIn);
-      contenedor.removeEventListener("scroll", limitarScroll);
       if (window.visualViewport) {
         window.visualViewport.removeEventListener("resize", onViewportResize);
         window.visualViewport.removeEventListener("scroll", onViewportResize);
       }
     };
-  }, []);
+  }, [loaded]); // antes era []: si este efecto corria mientras la pantalla
+  // de "Cargando tu cartera..." seguia mostrada, nunca encontraba el
+  // contenedor real y no se volvia a intentar cuando por fin aparecia.
 
   // Guarda con reintentos silenciosos: el storage a veces falla de forma transitoria (red,
   // límite de peticiones) aunque el dato termine guardándose bien, así que no se muestra
@@ -1386,11 +1377,6 @@ export default function Cartera() {
 
   return (
     <Shell>
-      {debugScroll && (
-        <div style={{ position: "fixed", top: 4, left: 4, right: 4, zIndex: 9999, background: "rgba(0,0,0,0.85)", color: "#0f0", fontFamily: "monospace", fontSize: 10, padding: "4px 6px", borderRadius: 6, pointerEvents: "none", lineHeight: 1.4 }}>
-          appH: {debugScroll.appHeight} · vv: {debugScroll.vv} · client: {debugScroll.clientHeight} · scrollH: {debugScroll.scrollHeight} · top: {debugScroll.scrollTop} · max: {debugScroll.maximo} · teclado: {String(tecladoAbierto)}
-        </div>
-      )}
       <TopBar total={totalActivo} count={prestamosActivos} duenoCartera={duenoCartera} />
       <div ref={contenidoRef} style={{ flex: 1, overflowY: "auto", paddingBottom: tecladoAbierto ? 0 : 116, transition: "padding-bottom 200ms ease" }}>
         {vista === "inicio" && (
