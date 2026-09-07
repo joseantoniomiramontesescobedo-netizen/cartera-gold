@@ -932,6 +932,7 @@ export default function Cartera() {
   const [clienteVistaId, setClienteVistaId] = useState(null);
   const [presetClienteId, setPresetClienteId] = useState(null);
   const [pagoModal, setPagoModal] = useState(null);
+  const [mostrarRespaldo, setMostrarRespaldo] = useState(false);
   const [paqueteImportar, setPaqueteImportar] = useState(null);
   const [importError, setImportError] = useState("");
   const [tecladoAbierto, setTecladoAbierto] = useState(false);
@@ -1043,6 +1044,35 @@ export default function Cartera() {
   const persistClientes = useCallback((next) => persistConReintento("clientes", next), [persistConReintento]);
   const persistPrestamos = useCallback((next) => persistConReintento("prestamos", next), [persistConReintento]);
   const persistAuxiliares = useCallback((next) => persistConReintento("auxiliares", next), [persistConReintento]);
+
+  // Restaura un respaldo completo (exportado desde "Mi libro" en otro dispositivo):
+  // reemplaza clientes, préstamos, auxiliares, el nombre del dueño, el perfil y los
+  // documentos guardados por préstamo, y persiste todo de inmediato.
+  const restaurarTodo = useCallback(async (datos) => {
+    const nuevosClientes = Array.isArray(datos.clientes) ? datos.clientes : [];
+    const nuevosPrestamos = Array.isArray(datos.prestamos) ? datos.prestamos : [];
+    const nuevosAuxiliares = Array.isArray(datos.auxiliares) ? datos.auxiliares : [];
+    setClientes(nuevosClientes);
+    setPrestamos(nuevosPrestamos);
+    setAuxiliares(nuevosAuxiliares);
+    if (typeof datos.duenoCartera === "string") setDuenoCartera(datos.duenoCartera);
+    await Promise.all([
+      persistClientes(nuevosClientes),
+      persistPrestamos(nuevosPrestamos),
+      persistAuxiliares(nuevosAuxiliares),
+    ]);
+    if (typeof datos.duenoCartera === "string") {
+      await window.storage.set("duenoCartera", datos.duenoCartera, false).catch(() => {});
+    }
+    if (datos.miPerfil) {
+      await window.storage.set("miPerfil", datos.miPerfil, false).catch(() => {});
+    }
+    if (datos.docs && typeof datos.docs === "object") {
+      for (const [key, value] of Object.entries(datos.docs)) {
+        await window.storage.set(key, value, false).catch(() => {});
+      }
+    }
+  }, [persistClientes, persistPrestamos, persistAuxiliares]);
 
   useEffect(() => {
     (async () => {
@@ -1377,8 +1407,8 @@ export default function Cartera() {
 
   return (
     <Shell>
-      <TopBar total={totalActivo} count={prestamosActivos} duenoCartera={duenoCartera} />
-      <div ref={contenidoRef} style={{ flex: 1, overflowY: "auto", paddingBottom: tecladoAbierto ? 0 : 116, transition: "padding-bottom 200ms ease" }}>
+      <TopBar total={totalActivo} count={prestamosActivos} duenoCartera={duenoCartera} onAbrirRespaldo={() => setMostrarRespaldo(true)} />
+      <div ref={contenidoRef} style={{ flex: 1, overflowY: "auto", paddingBottom: tecladoAbierto ? 0 : "calc(env(safe-area-inset-bottom, 0px) + 150px)", transition: "padding-bottom 200ms ease" }}>
         {vista === "inicio" && (
           <Inicio
             pendientes={pendientes}
@@ -1458,6 +1488,16 @@ export default function Cartera() {
       {pagoModal && (
         <PagoModal pago={pagoModal} onCancelar={() => setPagoModal(null)} onConfirmar={confirmarPago} />
       )}
+      {mostrarRespaldo && (
+        <ModalRespaldo
+          clientes={clientes}
+          prestamos={prestamos}
+          auxiliares={auxiliares}
+          duenoCartera={duenoCartera}
+          onRestaurarTodo={restaurarTodo}
+          onCerrar={() => setMostrarRespaldo(false)}
+        />
+      )}
     </Shell>
   );
 }
@@ -1471,17 +1511,24 @@ function Shell({ children }) {
       "--font-body": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       "--font-mono": "'SF Mono', 'Roboto Mono', ui-monospace, monospace",
       background: "var(--bg)", color: "var(--text)", width: "100%", maxWidth: 480, margin: "0 auto",
-      minHeight: 640, display: "flex", flexDirection: "column", fontFamily: "var(--font-body)",
+      display: "flex", flexDirection: "column", fontFamily: "var(--font-body)",
       position: "relative", overflow: "hidden",
     }}>{children}</div>
   );
 }
 
-function TopBar({ total, count, duenoCartera }) {
+function TopBar({ total, count, duenoCartera, onAbrirRespaldo }) {
   const titulo = duenoCartera ? `Cartera ${nombreCortoDueno(duenoCartera)}` : "Cartera";
   return (
     <div style={{ padding: "20px 20px 18px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)", borderBottom: "1px solid var(--border)", background: "linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%)" }}>
-      <div style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 700 }}>{titulo}</div>
+      <button
+        type="button"
+        onClick={onAbrirRespaldo}
+        style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", padding: 0, margin: 0, cursor: "pointer", color: "inherit", WebkitTapHighlightColor: "transparent" }}
+      >
+        <span style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 700 }}>{titulo}</span>
+        <ChevronDown size={18} color="var(--muted)" style={{ marginTop: 4 }} />
+      </button>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 10 }}>
         <div>
           <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Adeudo activo</div>
@@ -3474,6 +3521,133 @@ function CampoTelefono({ label, value, onChange, onNombreDetectado, placeholder 
 }
 
 /* ---------------- libro de préstamos ---------------- */
+
+// Junta clientes, préstamos, auxiliares, el nombre del dueño, el perfil (comisión, etc.)
+// y todos los documentos guardados por préstamo en un solo archivo .json, y lo entrega
+// primero al menú nativo de "Compartir" del teléfono (WhatsApp, AirDrop, Correo...); si
+// el dispositivo no lo soporta, cae automáticamente en una descarga normal del archivo.
+async function exportarRespaldoCompleto({ clientes, prestamos, auxiliares, duenoCartera }) {
+  const paquete = {
+    tipo: "respaldo-cartera-gold",
+    version: 1,
+    exportadoEn: new Date().toISOString(),
+    duenoCartera: duenoCartera || "",
+    clientes, prestamos, auxiliares,
+    docs: {},
+  };
+  try {
+    const perfilRes = await window.storage.get("miPerfil", false).catch(() => null);
+    if (perfilRes && perfilRes.value) paquete.miPerfil = perfilRes.value;
+  } catch (e) { /* sin perfil guardado */ }
+  try {
+    const lista = await window.storage.list("docs:", false).catch(() => null);
+    if (lista && lista.keys) {
+      for (const key of lista.keys) {
+        try {
+          const r = await window.storage.get(key, false);
+          if (r && r.value) paquete.docs[key] = r.value;
+        } catch (e) { /* doc no disponible, se omite */ }
+      }
+    }
+  } catch (e) { /* sin documentos guardados */ }
+
+  const contenido = JSON.stringify(paquete, null, 2);
+  const nombreArchivo = `respaldo-cartera-gold-${toISO(new Date())}.json`;
+  const archivo = new File([contenido], nombreArchivo, { type: "application/json" });
+
+  if (navigator.canShare && navigator.canShare({ files: [archivo] })) {
+    try {
+      await navigator.share({ files: [archivo], title: "Respaldo de mi cartera" });
+      return "compartido";
+    } catch (e) {
+      // el usuario canceló el menú de compartir, o falló: cae a la descarga normal
+    }
+  }
+  const url = URL.createObjectURL(archivo);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nombreArchivo;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  return "descargado";
+}
+
+// Hoja inferior con las opciones de respaldo, abierta al tocar el título
+// "Cartera {Nombre}" — antes vivían fijas dentro de la pantalla "Libro",
+// compitiendo visualmente con el propósito principal de esa pantalla (ver
+// el listado de préstamos). Se usan poco (no todos los días), así que
+// tiene más sentido guardarlas detrás de un toque intencional.
+function ModalRespaldo({ clientes, prestamos, auxiliares, duenoCartera, onRestaurarTodo, onCerrar }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 50 }} onClick={onCerrar}>
+      <div style={{ background: "var(--surface)", borderRadius: "16px 16px 0 0", padding: 18, paddingBottom: "calc(18px + env(safe-area-inset-bottom, 0px))", width: "100%", maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 18 }}>Respaldar y restaurar</div>
+          <button onClick={onCerrar} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer" }}><X size={20} /></button>
+        </div>
+        <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 14 }}>Guarda una copia de todos tus clientes y préstamos en un archivo, o restaura tu cartera desde un respaldo anterior.</div>
+        <RespaldoCartera clientes={clientes} prestamos={prestamos} auxiliares={auxiliares} duenoCartera={duenoCartera} onRestaurarTodo={onRestaurarTodo} />
+      </div>
+    </div>
+  );
+}
+
+function RespaldoCartera({ clientes, prestamos, auxiliares, duenoCartera, onRestaurarTodo }) {
+  const inputRef = useRef(null);
+  const [exportando, setExportando] = useState(false);
+  const [restaurando, setRestaurando] = useState(false);
+
+  const manejarExportar = async () => {
+    setExportando(true);
+    try {
+      await exportarRespaldoCompleto({ clientes, prestamos, auxiliares, duenoCartera });
+    } catch (e) {
+      alert("No se pudo generar el respaldo. Intenta otra vez.");
+    } finally {
+      setExportando(false);
+    }
+  };
+
+  const manejarArchivo = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    setRestaurando(true);
+    try {
+      const texto = await file.text();
+      const datos = JSON.parse(texto);
+      if (!datos || datos.tipo !== "respaldo-cartera-gold") {
+        alert("Este archivo no parece ser un respaldo de Cartera Gold.");
+        return;
+      }
+      const fecha = datos.exportadoEn ? new Date(datos.exportadoEn).toLocaleString("es-MX") : "fecha desconocida";
+      const confirmado = window.confirm(
+        `Esto va a REEMPLAZAR todos los clientes, préstamos y datos guardados en este dispositivo con los del respaldo del ${fecha}. Esta acción no se puede deshacer. ¿Continuar?`
+      );
+      if (!confirmado) return;
+      await onRestaurarTodo(datos);
+      alert("Listo, tu cartera fue restaurada en este dispositivo.");
+    } catch (e) {
+      alert("No se pudo leer el archivo. Revisa que sea el archivo de respaldo correcto.");
+    } finally {
+      setRestaurando(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
+      <input ref={inputRef} type="file" accept="application/json,.json" style={{ display: "none" }} onChange={manejarArchivo} />
+      <button type="button" onClick={manejarExportar} disabled={exportando} style={{ ...pillBtn, flex: 1, background: "var(--surface2)", color: "var(--text)", borderColor: "var(--border)", opacity: exportando ? 0.6 : 1 }}>
+        {exportando ? "Preparando…" : "Respaldar mi cartera"}
+      </button>
+      <button type="button" onClick={() => inputRef.current && inputRef.current.click()} disabled={restaurando} style={{ ...pillBtn, flex: 1, background: "var(--surface2)", color: "var(--text)", borderColor: "var(--border)", opacity: restaurando ? 0.6 : 1 }}>
+        {restaurando ? "Restaurando…" : "Restaurar desde archivo"}
+      </button>
+    </div>
+  );
+}
 
 function Libro({ prestamos, clientes, onVerPrestamo }) {
   const [modo, setModo] = useState("general");
